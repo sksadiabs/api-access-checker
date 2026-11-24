@@ -109,6 +109,14 @@
 
   <section class="panel">
     <h2>3. Endpoints</h2>
+    <div class="field">
+      <label for="specUrl">Documentation link (optional)</label>
+      <input type="text" id="specUrl" placeholder="http://localhost:8000/openapi.json">
+    </div>
+    <div class="btnrow" style="margin-top:0">
+      <button id="loadSpecBtn" class="secondary">Load endpoints from link</button>
+    </div>
+    <p class="hint" id="specNote">Paste a link to the API's OpenAPI or Swagger JSON file to fill in the table automatically. IDs like {id} become 1, and the suggested results are based on the docs. Review them before you run.</p>
     <p class="hint">Each row is one URL. Pick for each user whether they <b>should be allowed</b> to use it, <b>should be blocked</b>, or leave it on <b>Don't test</b>. Paths start with / and are added to the API address above, like /api/profile.</p>
     <div class="table-wrap">
       <table>
@@ -490,7 +498,75 @@ function downloadReport() {
   a.remove();
 }
 
+// ---------- Load endpoints from an OpenAPI / Swagger link ----------
+function importSpec(spec) {
+  let count = 0, skipped = 0;
+  const globalSecured = Array.isArray(spec.security) && spec.security.length > 0;
+  for (const [path, item] of Object.entries(spec.paths)) {
+    for (const method of Object.keys(item)) {
+      const m = method.toLowerCase();
+      if (m !== "get") {
+        if (["post", "put", "patch", "delete"].includes(m)) skipped++;
+        continue;
+      }
+      const op = item[method];
+      const secured = Array.isArray(op.security) ? op.security.length > 0 : globalSecured;
+      const filledPath = path.replace(/\{[^}]+\}/g, "1");
+      const exp = {};
+      // Suggested starting point: logged-in users allowed; not-logged-in blocked on secured routes.
+      state.users.forEach(u => {
+        const notLoggedIn = !u.token.trim();
+        exp[u.id] = notLoggedIn && secured ? "deny" : "allow";
+      });
+      state.endpoints.push({
+        id: newId("e"),
+        name: op.summary || op.operationId || ("GET " + path),
+        path: filledPath,
+        exp
+      });
+      count++;
+    }
+  }
+  return { count, skipped };
+}
+
+async function loadFromSpec() {
+  setError("");
+  const link = $("specUrl").value.trim();
+  let specUrl;
+  try { specUrl = new URL(link); }
+  catch (e) { setError("Paste a full link, like http://localhost:8000/openapi.json"); return; }
+
+  const local = specUrl.hostname === "localhost" || specUrl.hostname === "127.0.0.1";
+  if (!local && !$("authorized").checked) {
+    setError("This link is not localhost. Tick the authorization box in section 1 if you are permitted to test it.");
+    return;
+  }
+
+  const btn = $("loadSpecBtn");
+  btn.disabled = true;
+  btn.textContent = "Loading...";
+  try {
+    const res = await fetch(specUrl.href, { headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error("The link answered with status " + res.status + ".");
+    const spec = await res.json();
+    if (!spec.paths) throw new Error("The file has no 'paths' section. It may not be OpenAPI or Swagger JSON.");
+    if (!state.users.length) throw new Error("Add at least one user first (section 2), so the table has columns.");
+    const result = importSpec(spec);
+    renderGrid();
+    $("specNote").textContent = "Added " + result.count + " GET endpoint" + (result.count === 1 ? "" : "s") +
+      ". Review the suggested results before you run." +
+      (result.skipped ? " " + result.skipped + " write operation" + (result.skipped === 1 ? " was" : "s were") + " skipped, since the checker only reads data." : "");
+  } catch (e) {
+    setError("Could not load that link. " + e.message + " If the address is right, the API may not allow pages from other websites (CORS).");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Load endpoints from link";
+  }
+}
+
 // ---------- Wire up buttons ----------
+$("loadSpecBtn").onclick = loadFromSpec;
 $("loadBtn").onclick = loadPractice;
 $("addUserBtn").onclick = addUser;
 $("addEndpointBtn").onclick = addEndpoint;

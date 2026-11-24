@@ -33,6 +33,31 @@ ORDERS = {
 }
 
 
+# API documentation (OpenAPI format). The checker can read this to fill in the endpoint list.
+# Note: the spec says every route needs a login, but /api/profile does not enforce that (see BUG 1).
+OPENAPI = {
+    "openapi": "3.0.0",
+    "info": {"title": "Practice API", "version": "1.0.0"},
+    "servers": [{"url": "http://localhost:8000"}],
+    "components": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}},
+    "security": [{"bearerAuth": []}],
+    "paths": {
+        "/api/profile": {"get": {"summary": "Get my profile", "operationId": "getProfile",
+                                 "responses": {"200": {"description": "OK"}}}},
+        "/api/users/{id}": {"get": {"summary": "Get a user by ID", "operationId": "getUser",
+                                    "parameters": [{"name": "id", "in": "path", "required": True,
+                                                    "schema": {"type": "integer"}}],
+                                    "responses": {"200": {"description": "OK"}}}},
+        "/api/orders/{id}": {"get": {"summary": "Get an order by ID", "operationId": "getOrder",
+                                     "parameters": [{"name": "id", "in": "path", "required": True,
+                                                     "schema": {"type": "integer"}}],
+                                     "responses": {"200": {"description": "OK"}}}},
+        "/api/admin/users": {"get": {"summary": "List all users (admin only)", "operationId": "adminListUsers",
+                                     "responses": {"200": {"description": "OK"}}}},
+    },
+}
+
+
 class PracticeHandler(BaseHTTPRequestHandler):
     def _cors(self):
         # Lets the browser checker page call this API from another origin.
@@ -62,6 +87,10 @@ class PracticeHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0].rstrip("/")
         uid = self._current_user()
+
+        # API documentation the checker can import
+        if path == "/openapi.json":
+            return self._send(200, OPENAPI)
 
         # Serve the browser checker page at http://localhost:8000/
         if path in ("", "/checker", "/index.html"):
