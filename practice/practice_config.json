@@ -1,0 +1,49 @@
+{
+  "base_url": "http://localhost:8000",
+  "allowed_hosts": ["localhost", "127.0.0.1"],
+  "allow_write_requests": false,
+
+  "roles": {
+    "anonymous": null,
+    "alice": "token-alice",
+    "bob": "token-bob",
+    "admin": "token-admin"
+  },
+
+  "endpoints": [
+    {
+      "name": "Profile (should require login)",
+      "method": "GET",
+      "path": "/api/profile",
+      "expect": { "anonymous": "deny", "alice": "allow" }
+    },
+    {
+      "name": "Read own user record by ID",
+      "method": "GET",
+      "path": "/api/users/{id}",
+      "path_vars": { "id": "1" },
+      "path_vars_by_role": { "bob": { "id": "2" } },
+      "expect": { "anonymous": "deny", "alice": "allow", "bob": "allow" }
+    },
+    {
+      "name": "Bob reads Alice's record (BOLA test)",
+      "method": "GET",
+      "path": "/api/users/{id}",
+      "path_vars": { "id": "1" },
+      "expect": { "bob": "deny" }
+    },
+    {
+      "name": "Order owned by Alice (correct control)",
+      "method": "GET",
+      "path": "/api/orders/{id}",
+      "path_vars": { "id": "101" },
+      "expect": { "anonymous": "deny", "alice": "allow", "bob": "deny", "admin": "allow" }
+    },
+    {
+      "name": "Admin-only user list",
+      "method": "GET",
+      "path": "/api/admin/users",
+      "expect": { "anonymous": "deny", "alice": "deny", "admin": "allow" }
+    }
+  ]
+}

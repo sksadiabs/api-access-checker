@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Access Checker</title>
+<style>
+  :root { --bg:#0f1420; --panel:#171e2e; --line:#2a3550; --text:#e6ebf5; --muted:#9aa6c2;
+          --pass:#2ecc71; --find:#ff5c5c; --warn:#f5b942; --info:#5aa7ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:20px 28px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:6px 0 0; color:var(--muted); font-size:14px; }
+  main { display:grid; grid-template-columns: minmax(300px, 420px) 1fr; gap:20px; padding:20px 28px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  h2 { margin:0 0 10px; font-size:15px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  textarea { width:100%; height:380px; background:#0b0f19; color:var(--text); border:1px solid var(--line);
+             border-radius:8px; padding:10px; font-family: Consolas, monospace; font-size:12px; }
+  button { background:var(--info); color:#06111f; border:0; border-radius:8px; padding:10px 16px;
+           font-weight:600; cursor:pointer; margin-top:10px; margin-right:8px; }
+  button.secondary { background:#2a3550; color:var(--text); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  label.check { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--muted); margin-top:10px; }
+  .summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .chip { padding:6px 10px; border-radius:999px; font-size:13px; font-weight:600; background:#0b0f19; border:1px solid var(--line); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  td.snippet { font-family: Consolas, monospace; color:var(--muted); max-width:260px; word-break:break-all; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; }
+  .PASS { background:rgba(46,204,113,.15); color:var(--pass); }
+  .FINDING { background:rgba(255,92,92,.18); color:var(--find); }
+  .UNEXPECTED { background:rgba(245,185,66,.15); color:var(--warn); }
+  .CHECK, .ERROR, .SKIPPED { background:rgba(90,167,255,.12); color:var(--info); }
+  .notice { font-size:13px; color:var(--muted); margin-top:12px; line-height:1.5; }
+  .error { color:var(--find); font-size:13px; margin-top:10px; min-height:1em; }
+</style>
+</head>
+<body>
+<header>
+  <h1>API Access Checker</h1>
+  <p>Tests whether an API blocks the users it should block. Read-only (GET requests only). Use only on systems you are authorized to test.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Config (JSON)</h2>
+    <textarea id="config" spellcheck="false"></textarea>
+    <div>
+      <button id="runBtn">Run checks</button>
+      <button id="resetBtn" class="secondary">Reset example</button>
+    </div>
+    <label class="check">
+      <input type="checkbox" id="authorized">
+      <span>I am authorized to test this host (required for any host other than localhost or 127.0.0.1).</span>
+    </label>
+    <div class="error" id="error"></div>
+    <p class="notice">
+      Tokens live only in this page and are not saved anywhere. Expected values:
+      <b>allow</b> = should work, <b>deny</b> = should be blocked.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Results</h2>
+    <div class="summary" id="summary"></div>
+    <table>
+      <thead>
+        <tr><th>Result</th><th>Endpoint</th><th>Role</th><th>Expected</th><th>Status</th><th>Response start</th></tr>
+      </thead>
+      <tbody id="rows">
+        <tr><td colspan="6" style="color:var(--muted)">No results yet. Click "Run checks".</td></tr>
+      </tbody>
+    </table>
+    <p class="notice" id="legend">
+      <span class="tag PASS">PASS</span> matched expectation &nbsp;
+      <span class="tag FINDING">FINDING</span> blocked user got data (verify and report) &nbsp;
+      <span class="tag UNEXPECTED">UNEXPECTED BLOCK</span> allowed user was blocked &nbsp;
+      <span class="tag CHECK">CHECK</span> look at it yourself &nbsp;
+      <span class="tag ERROR">ERROR</span> no response (server down or blocked by browser)
+    </p>
+  </section>
+</main>
+
+<script>
+const EXAMPLE = {
+  base_url: "http://localhost:8000",
+  allowed_hosts: ["localhost", "127.0.0.1"],
+  roles: { anonymous: null, alice: "token-alice", bob: "token-bob", admin: "token-admin" },
+  endpoints: [
+    { name: "Profile (should require login)", method: "GET", path: "/api/profile",
+      expect: { anonymous: "deny", alice: "allow" } },
+    { name: "Read own user record by ID", method: "GET", path: "/api/users/{id}",
+      path_vars: { id: "1" }, path_vars_by_role: { bob: { id: "2" } },
+      expect: { anonymous: "deny", alice: "allow", bob: "allow" } },
+    { name: "Bob reads Alice's record (BOLA test)", method: "GET", path: "/api/users/{id}",
+      path_vars: { id: "1" }, expect: { bob: "deny" } },
+    { name: "Order owned by Alice (correct control)", method: "GET", path: "/api/orders/{id}",
+      path_vars: { id: "101" }, expect: { anonymous: "deny", alice: "allow", bob: "deny", admin: "allow" } },
+    { name: "Admin-only user list", method: "GET", path: "/api/admin/users",
+      expect: { anonymous: "deny", alice: "deny", admin: "allow" } }
+  ]
+};
+
+const $ = id => document.getElementById(id);
+const configBox = $("config");
+configBox.value = JSON.stringify(EXAMPLE, null, 2);
+
+$("resetBtn").onclick = () => { configBox.value = JSON.stringify(EXAMPLE, null, 2); $("error").textContent = ""; };
+
+function verdict(expected, status) {
+  if (status === null) return "ERROR";
+  const ok = status >= 200 && status < 300;
+  const blocked = status === 401 || status === 403;
+  if (expected === "allow") return ok ? "PASS" : blocked ? "UNEXPECTED BLOCK" : "CHECK";
+  return ok ? "FINDING" : blocked ? "PASS" : "CHECK";
+}
+
+function label(result) {
+  return result.startsWith("UNEXPECTED") ? "UNEXPECTED" : result;
+}
+
+function addRow(cells) {
+  const tbody = $("rows");
+  if (tbody.dataset.empty) { tbody.innerHTML = ""; delete tbody.dataset.empty; }
+  const tr = document.createElement("tr");
+  cells.forEach((c, i) => {
+    const td = document.createElement("td");
+    if (i === 0) {
+      const tag = document.createElement("span");
+      tag.className = "tag " + label(c);
+      tag.textContent = c;
+      td.appendChild(tag);
+    } else {
+      td.textContent = c === null ? "-" : String(c);
+      if (i === 5) td.className = "snippet";
+    }
+    tr.appendChild(td);
+  });
+  tbody.appendChild(tr);
+}
+
+function renderSummary(counts) {
+  const box = $("summary");
+  box.innerHTML = "";
+  Object.entries(counts).sort().forEach(([k, v]) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = k + ": " + v;
+    box.appendChild(chip);
+  });
+}
+
+function fillPath(path, vars) {
+  return path.replace(/\{(\w+)\}/g, (m, key) => {
+    if (!(key in vars)) throw new Error("missing path variable " + key);
+    return encodeURIComponent(vars[key]);
+  });
+}
+
+async function runChecks() {
+  $("error").textContent = "";
+  let cfg;
+  try { cfg = JSON.parse(configBox.value); }
+  catch (e) { $("error").textContent = "Config is not valid JSON: " + e.message; return; }
+
+  for (const key of ["base_url", "roles", "endpoints"]) {
+    if (!(key in cfg)) { $("error").textContent = "Config is missing: " + key; return; }
+  }
+
+  let host;
+  try { host = new URL(cfg.base_url).hostname; }
+  catch (e) { $("error").textContent = "base_url is not a valid URL."; return; }
+
+  const isLocal = host === "localhost" || host === "127.0.0.1";
+  if (!isLocal && !$("authorized").checked) {
+    $("error").textContent = "Host '" + host + "' is not localhost. Tick the authorization box if you are permitted to test it.";
+    return;
+  }
+
+  const btn = $("runBtn");
+  btn.disabled = true;
+  btn.textContent = "Running...";
+  $("rows").innerHTML = "";
+  $("rows").dataset.empty = "";
+  const counts = {};
+
+  for (const ep of cfg.endpoints) {
+    const name = ep.name || (ep.method + " " + ep.path);
+    const method = (ep.method || "GET").toUpperCase();
+
+    if (method !== "GET") {
+      addRow(["SKIPPED", name, "-", "-", "-", "Only GET is run in the browser checker"]);
+      counts.SKIPPED = (counts.SKIPPED || 0) + 1;
+      continue;
+    }
+
+    for (const [role, expected] of Object.entries(ep.expect || {})) {
+      if (!(role in cfg.roles)) {
+        addRow(["SKIPPED", name, role, expected, "-", "role not defined in config"]);
+        counts.SKIPPED = (counts.SKIPPED || 0) + 1;
+        continue;
+      }
+      const vars = Object.assign({}, ep.path_vars || {}, (ep.path_vars_by_role || {})[role] || {});
+      let url;
+      try { url = cfg.base_url.replace(/\/$/, "") + fillPath(ep.path, vars); }
+      catch (e) {
+        addRow(["SKIPPED", name, role, expected, "-", e.message]);
+        counts.SKIPPED = (counts.SKIPPED || 0) + 1;
+        continue;
+      }
+
+      const token = cfg.roles[role];
+      const headers = token ? { Authorization: "Bearer " + token } : {};
+      let status = null, snippet = "";
+      try {
+        const res = await fetch(url, { method: "GET", headers });
+        status = res.status;
+        snippet = (await res.text()).slice(0, 120);
+      } catch (e) {
+        snippet = "no response (server down, or browser blocked the request)";
+      }
+
+      const result = verdict(expected, status);
+      counts[result] = (counts[result] || 0) + 1;
+      addRow([result, name, role, expected, status, snippet]);
+      renderSummary(counts);
+    }
+  }
+
+  if (!Object.keys(counts).length) addRow(["SKIPPED", "No checks ran", "-", "-", "-", "Check your config"]);
+  renderSummary(counts);
+  btn.disabled = false;
+  btn.textContent = "Run checks";
+}
+
+$("runBtn").onclick = runChecks;
+</script>
+</body>
+</html>
