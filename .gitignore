@@ -1,0 +1,6 @@
+# Secrets and generated output - never commit these
+config.json
+*.token
+access_report.md
+__pycache__/
+*.pyc

@@ -1,0 +1,46 @@
+{
+  "base_url": "http://localhost:3000",
+  "allowed_hosts": ["localhost", "127.0.0.1"],
+  "allow_write_requests": false,
+
+  "roles": {
+    "anonymous": null,
+    "user_a": "PASTE_USER_A_TOKEN_HERE",
+    "user_b": "PASTE_USER_B_TOKEN_HERE",
+    "admin": "PASTE_ADMIN_TOKEN_HERE"
+  },
+
+  "endpoints": [
+    {
+      "name": "View own profile by ID",
+      "method": "GET",
+      "path": "/api/users/{id}",
+      "path_vars": { "id": "1" },
+      "path_vars_by_role": { "user_b": { "id": "2" } },
+      "expect": {
+        "anonymous": "deny",
+        "user_a": "allow",
+        "user_b": "allow"
+      }
+    },
+    {
+      "name": "Cross-user read: user_b tries user_a's record (BOLA test)",
+      "method": "GET",
+      "path": "/api/users/{id}",
+      "path_vars": { "id": "1" },
+      "expect": {
+        "user_b": "deny"
+      }
+    },
+    {
+      "name": "Admin-only user list",
+      "method": "GET",
+      "path": "/api/admin/users",
+      "expect": {
+        "anonymous": "deny",
+        "user_a": "deny",
+        "admin": "allow"
+      }
+    }
+  ]
+}
