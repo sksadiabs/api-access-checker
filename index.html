@@ -6,237 +6,501 @@
 <title>API Access Checker</title>
 <style>
   :root { --bg:#0f1420; --panel:#171e2e; --line:#2a3550; --text:#e6ebf5; --muted:#9aa6c2;
-          --pass:#2ecc71; --find:#ff5c5c; --warn:#f5b942; --info:#5aa7ff; }
+          --pass:#2ecc71; --find:#ff5c5c; --warn:#f5b942; --info:#5aa7ff; --input:#0b0f19; }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
-  header { padding:20px 28px; border-bottom:1px solid var(--line); }
-  header h1 { margin:0; font-size:20px; }
+  body { margin:0; font-family: system-ui, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+  header { padding:22px 28px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:22px; }
   header p { margin:6px 0 0; color:var(--muted); font-size:14px; }
-  main { display:grid; grid-template-columns: minmax(300px, 420px) 1fr; gap:20px; padding:20px 28px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
-  h2 { margin:0 0 10px; font-size:15px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
-  textarea { width:100%; height:380px; background:#0b0f19; color:var(--text); border:1px solid var(--line);
-             border-radius:8px; padding:10px; font-family: Consolas, monospace; font-size:12px; }
-  button { background:var(--info); color:#06111f; border:0; border-radius:8px; padding:10px 16px;
-           font-weight:600; cursor:pointer; margin-top:10px; margin-right:8px; }
+  .wrap { max-width:1100px; margin:0 auto; padding:20px 28px 40px; display:flex; flex-direction:column; gap:18px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  h2 { margin:0 0 4px; font-size:17px; }
+  .hint { margin:0 0 12px; color:var(--muted); font-size:13px; }
+  .steps { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; }
+  @media (max-width: 800px) { .steps { grid-template-columns: 1fr 1fr; } }
+  .step { background:var(--input); border:1px solid var(--line); border-radius:10px; padding:12px; font-size:13px; color:var(--muted); }
+  .step b { display:block; color:var(--text); margin-bottom:4px; }
+  input[type=text], input[type=url], select {
+    background:var(--input); color:var(--text); border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; font-size:14px; font-family:inherit; }
+  input[type=text], input[type=url] { width:100%; }
+  button { background:var(--info); color:#06111f; border:0; border-radius:8px; padding:9px 14px;
+           font-weight:600; font-size:14px; cursor:pointer; }
   button.secondary { background:#2a3550; color:var(--text); }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  label.check { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--muted); margin-top:10px; }
-  .summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
-  .chip { padding:6px 10px; border-radius:999px; font-size:13px; font-weight:600; background:#0b0f19; border:1px solid var(--line); }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
+  button.danger { background:transparent; color:var(--find); border:1px solid var(--line); padding:6px 10px; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .btnrow { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  .field { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+  .field label { font-size:13px; color:var(--muted); }
+  .check { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--muted); margin-top:4px; }
+  .users .urow { display:grid; grid-template-columns: 1fr 1.4fr auto; gap:8px; margin-bottom:8px; }
+  .users .urow input { min-width:0; }
+  @media (max-width: 700px) { .users .urow { grid-template-columns: 1fr; } }
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
   th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--muted); font-weight:600; }
-  td.snippet { font-family: Consolas, monospace; color:var(--muted); max-width:260px; word-break:break-all; }
-  .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; }
+  th { color:var(--muted); font-weight:600; font-size:13px; }
+  td input[type=text] { margin-bottom:4px; }
+  td.center { text-align:center; }
+  .notes { font-size:12px; color:var(--muted); margin-top:4px; }
+  .summary { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:14px; }
+  @media (max-width: 800px) { .summary { grid-template-columns: 1fr 1fr; } }
+  .card { background:var(--input); border:1px solid var(--line); border-radius:10px; padding:12px; text-align:center; }
+  .card .num { font-size:26px; font-weight:700; }
+  .card .lbl { font-size:12px; color:var(--muted); }
+  .verdict { font-size:15px; margin:0 0 12px; padding:12px; border-radius:10px; border:1px solid var(--line); }
+  .verdict.good { border-color:rgba(46,204,113,.5); color:var(--pass); }
+  .verdict.bad { border-color:rgba(255,92,92,.6); color:var(--find); }
+  .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; white-space:nowrap; }
   .PASS { background:rgba(46,204,113,.15); color:var(--pass); }
   .FINDING { background:rgba(255,92,92,.18); color:var(--find); }
-  .UNEXPECTED { background:rgba(245,185,66,.15); color:var(--warn); }
-  .CHECK, .ERROR, .SKIPPED { background:rgba(90,167,255,.12); color:var(--info); }
-  .notice { font-size:13px; color:var(--muted); margin-top:12px; line-height:1.5; }
-  .error { color:var(--find); font-size:13px; margin-top:10px; min-height:1em; }
+  .REVIEW { background:rgba(245,185,66,.15); color:var(--warn); }
+  .ERROR, .SKIPPED { background:rgba(90,167,255,.12); color:var(--info); }
+  details { font-size:12px; color:var(--muted); margin-top:4px; }
+  details code { font-family: Consolas, monospace; word-break:break-all; }
+  .error { color:var(--find); font-size:14px; margin-top:10px; min-height:1em; }
+  .legend { font-size:13px; color:var(--muted); margin-top:12px; line-height:1.9; }
+  .empty { color:var(--muted); padding:20px 0; text-align:center; }
 </style>
 </head>
 <body>
 <header>
   <h1>API Access Checker</h1>
-  <p>Tests whether an API blocks the users it should block. Read-only (GET requests only). Use only on systems you are authorized to test.</p>
+  <p>Checks whether an API blocks the users who shouldn't reach certain data. It only reads data (GET requests). Only test systems you are authorized to test.</p>
 </header>
 
-<main>
+<div class="wrap">
+
   <section class="panel">
-    <h2>Config (JSON)</h2>
-    <textarea id="config" spellcheck="false"></textarea>
-    <div>
-      <button id="runBtn">Run checks</button>
-      <button id="resetBtn" class="secondary">Reset example</button>
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step"><b>1. Target</b>Enter the address of the API you're testing.</div>
+      <div class="step"><b>2. Users</b>Add the users to test, with their login token. Leave the token empty for "not logged in."</div>
+      <div class="step"><b>3. Endpoints</b>List the URLs to test. For each user, pick whether they should be allowed or blocked.</div>
+      <div class="step"><b>4. Run</b>Read the results. A FINDING means a user got data they should have been blocked from.</div>
     </div>
-    <label class="check">
-      <input type="checkbox" id="authorized">
-      <span>I am authorized to test this host (required for any host other than localhost or 127.0.0.1).</span>
-    </label>
-    <div class="error" id="error"></div>
-    <p class="notice">
-      Tokens live only in this page and are not saved anywhere. Expected values:
-      <b>allow</b> = should work, <b>deny</b> = should be blocked.
-    </p>
+    <div class="btnrow">
+      <button id="loadBtn" class="secondary">Load practice example</button>
+      <span class="hint" style="margin:0">Fills in the form with the practice server's settings so you can try it right away.</span>
+    </div>
   </section>
 
   <section class="panel">
-    <h2>Results</h2>
-    <div class="summary" id="summary"></div>
-    <table>
-      <thead>
-        <tr><th>Result</th><th>Endpoint</th><th>Role</th><th>Expected</th><th>Status</th><th>Response start</th></tr>
-      </thead>
-      <tbody id="rows">
-        <tr><td colspan="6" style="color:var(--muted)">No results yet. Click "Run checks".</td></tr>
-      </tbody>
-    </table>
-    <p class="notice" id="legend">
-      <span class="tag PASS">PASS</span> matched expectation &nbsp;
-      <span class="tag FINDING">FINDING</span> blocked user got data (verify and report) &nbsp;
-      <span class="tag UNEXPECTED">UNEXPECTED BLOCK</span> allowed user was blocked &nbsp;
-      <span class="tag CHECK">CHECK</span> look at it yourself &nbsp;
-      <span class="tag ERROR">ERROR</span> no response (server down or blocked by browser)
-    </p>
+    <h2>1. Target</h2>
+    <p class="hint">The address where the API is running. For the practice server, that's http://localhost:8000.</p>
+    <div class="field">
+      <label for="baseUrl">API address</label>
+      <input type="url" id="baseUrl" placeholder="http://localhost:8000">
+    </div>
+    <div class="check" id="authBox" hidden>
+      <input type="checkbox" id="authorized">
+      <span>I am authorized in writing to test this address. Required for any address other than localhost.</span>
+    </div>
   </section>
-</main>
+
+  <section class="panel">
+    <h2>2. Users</h2>
+    <p class="hint">Each user is one role you want to test. Paste the login token for each one (from the API's login response). Leave the token empty to test as "not logged in."</p>
+    <div class="users" id="users"></div>
+    <div class="btnrow">
+      <button id="addUserBtn" class="secondary">+ Add user</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Endpoints</h2>
+    <p class="hint">Each row is one URL. Pick for each user whether they <b>should be allowed</b> to use it, <b>should be blocked</b>, or leave it on <b>Don't test</b>. Paths start with / and are added to the API address above, like /api/profile.</p>
+    <div class="table-wrap">
+      <table>
+        <thead id="gridHead"></thead>
+        <tbody id="gridBody"></tbody>
+      </table>
+    </div>
+    <div class="btnrow">
+      <button id="addEndpointBtn" class="secondary">+ Add endpoint</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>4. Run</h2>
+    <p class="hint">Sends each test one at a time. It can take a few seconds.</p>
+    <div class="btnrow" style="margin-top:0">
+      <button id="runBtn">Run checks</button>
+      <button id="downloadBtn" class="secondary" disabled>Download report</button>
+    </div>
+    <div class="error" id="error"></div>
+  </section>
+
+  <section class="panel" id="resultsPanel">
+    <h2>Results</h2>
+    <p class="hint">Results appear here after you run the checks.</p>
+    <div id="verdict"></div>
+    <div class="summary" id="summary"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Result</th><th>Who</th><th>Endpoint</th><th>Expected</th><th>What happened</th><th>What it means</th></tr>
+        </thead>
+        <tbody id="resultsBody">
+          <tr><td colspan="6" class="empty">No results yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span class="tag PASS">PASS</span> The rule worked as expected. &nbsp;
+      <span class="tag FINDING">FINDING</span> A user who should be blocked got data. Verify it and report it. &nbsp;
+      <span class="tag REVIEW">REVIEW</span> Unusual result or a possible bug. Look at it yourself. &nbsp;
+      <span class="tag ERROR">ERROR</span> No answer. Check that the server is running.
+    </div>
+  </section>
+
+</div>
 
 <script>
-const EXAMPLE = {
-  base_url: "http://localhost:8000",
-  allowed_hosts: ["localhost", "127.0.0.1"],
-  roles: { anonymous: null, alice: "token-alice", bob: "token-bob", admin: "token-admin" },
+// ---------- Practice settings (same as the practice server's answer key) ----------
+const PRACTICE = {
+  baseUrl: "http://localhost:8000",
+  users: [
+    { name: "Not logged in", token: "" },
+    { name: "Alice", token: "token-alice" },
+    { name: "Bob", token: "token-bob" },
+    { name: "Admin", token: "token-admin" }
+  ],
   endpoints: [
-    { name: "Profile (should require login)", method: "GET", path: "/api/profile",
-      expect: { anonymous: "deny", alice: "allow" } },
-    { name: "Read own user record by ID", method: "GET", path: "/api/users/{id}",
-      path_vars: { id: "1" }, path_vars_by_role: { bob: { id: "2" } },
-      expect: { anonymous: "deny", alice: "allow", bob: "allow" } },
-    { name: "Bob reads Alice's record (BOLA test)", method: "GET", path: "/api/users/{id}",
-      path_vars: { id: "1" }, expect: { bob: "deny" } },
-    { name: "Order owned by Alice (correct control)", method: "GET", path: "/api/orders/{id}",
-      path_vars: { id: "101" }, expect: { anonymous: "deny", alice: "allow", bob: "deny", admin: "allow" } },
-    { name: "Admin-only user list", method: "GET", path: "/api/admin/users",
-      expect: { anonymous: "deny", alice: "deny", admin: "allow" } }
+    { name: "Profile page", path: "/api/profile",
+      exp: ["deny", "allow", "skip", "skip"] },
+    { name: "Alice's user record", path: "/api/users/1",
+      exp: ["deny", "allow", "deny", "skip"] },
+    { name: "Alice's order", path: "/api/orders/101",
+      exp: ["deny", "allow", "deny", "allow"] },
+    { name: "Admin user list", path: "/api/admin/users",
+      exp: ["deny", "deny", "skip", "allow"] }
   ]
 };
 
+// ---------- State ----------
+let idCounter = 1;
+const newId = prefix => prefix + (idCounter++);
+let state = { baseUrl: "", authorized: false, users: [], endpoints: [] };
+let lastResults = [];
+
 const $ = id => document.getElementById(id);
-const configBox = $("config");
-configBox.value = JSON.stringify(EXAMPLE, null, 2);
 
-$("resetBtn").onclick = () => { configBox.value = JSON.stringify(EXAMPLE, null, 2); $("error").textContent = ""; };
+// Helpers to build elements safely (no innerHTML with user data)
+function el(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  Object.entries(props).forEach(([k, v]) => {
+    if (k === "text") node.textContent = v;
+    else if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  });
+  children.forEach(c => node.appendChild(c));
+  return node;
+}
 
+// ---------- Loading the practice example ----------
+function loadPractice() {
+  state.baseUrl = PRACTICE.baseUrl;
+  state.authorized = false;
+  state.users = PRACTICE.users.map(u => ({ id: newId("u"), name: u.name, token: u.token }));
+  state.endpoints = PRACTICE.endpoints.map(e => {
+    const exp = {};
+    state.users.forEach((u, i) => { exp[u.id] = e.exp[i]; });
+    return { id: newId("e"), name: e.name, path: e.path, exp };
+  });
+  renderAll();
+  $("error").textContent = "";
+}
+
+// ---------- Users ----------
+function renderUsers() {
+  const box = $("users");
+  box.innerHTML = "";
+  if (!state.users.length) {
+    box.appendChild(el("div", { class: "empty", text: "No users yet. Click \"+ Add user\"." }));
+  }
+  state.users.forEach(u => {
+    const nameInput = el("input", { type: "text", value: u.name, placeholder: "Name, e.g. Alice",
+      oninput: e => { u.name = e.target.value; refreshHeaders(); } });
+    const tokenInput = el("input", { type: "text", value: u.token, placeholder: "Login token (leave empty for not logged in)",
+      oninput: e => { u.token = e.target.value; } });
+    const removeBtn = el("button", { class: "danger", text: "Remove",
+      onclick: () => {
+        state.users = state.users.filter(x => x.id !== u.id);
+        state.endpoints.forEach(e => delete e.exp[u.id]);
+        renderAll();
+      } });
+    box.appendChild(el("div", { class: "urow" }, [nameInput, tokenInput, removeBtn]));
+  });
+}
+
+function addUser() {
+  state.users.push({ id: newId("u"), name: "New user", token: "" });
+  renderAll();
+}
+
+// ---------- Endpoints grid ----------
+function renderGrid() {
+  const head = $("gridHead");
+  const body = $("gridBody");
+  head.innerHTML = "";
+  body.innerHTML = "";
+
+  const headRow = el("tr", {}, [
+    el("th", { text: "Endpoint (name and path)" }),
+    ...state.users.map(u => el("th", { text: u.name || "(no name)", "data-uhead": u.id })),
+    el("th", { text: "" })
+  ]);
+  head.appendChild(headRow);
+
+  if (!state.endpoints.length) {
+    body.appendChild(el("tr", {}, [el("td", { colspan: String(state.users.length + 2), class: "empty", text: "No endpoints yet. Click \"+ Add endpoint\"." })]));
+  }
+
+  state.endpoints.forEach(ep => {
+    const nameInput = el("input", { type: "text", value: ep.name, placeholder: "Name",
+      oninput: e => { ep.name = e.target.value; } });
+    const pathInput = el("input", { type: "text", value: ep.path, placeholder: "/api/something",
+      oninput: e => { ep.path = e.target.value; } });
+    const first = el("td", {}, [nameInput, pathInput]);
+
+    const cells = state.users.map(u => {
+      const current = ep.exp[u.id] || "skip";
+      const select = el("select", { onchange: e => { ep.exp[u.id] = e.target.value; } }, [
+        el("option", { value: "allow", text: "Should be allowed", ...(current === "allow" ? { selected: "" } : {}) }),
+        el("option", { value: "deny", text: "Should be blocked", ...(current === "deny" ? { selected: "" } : {}) }),
+        el("option", { value: "skip", text: "Don't test", ...(current === "skip" ? { selected: "" } : {}) })
+      ]);
+      return el("td", { class: "center" }, [select]);
+    });
+
+    const removeBtn = el("td", {}, [el("button", { class: "danger", text: "Remove",
+      onclick: () => {
+        state.endpoints = state.endpoints.filter(x => x.id !== ep.id);
+        renderGrid();
+      } })]);
+
+    body.appendChild(el("tr", {}, [first, ...cells, removeBtn]));
+  });
+}
+
+function refreshHeaders() {
+  state.users.forEach(u => {
+    document.querySelectorAll('[data-uhead="' + u.id + '"]').forEach(th => {
+      th.textContent = u.name || "(no name)";
+    });
+  });
+}
+
+function addEndpoint() {
+  state.endpoints.push({ id: newId("e"), name: "New endpoint", path: "/api/", exp: {} });
+  renderGrid();
+}
+
+// ---------- Rendering all inputs ----------
+function renderAll() {
+  $("baseUrl").value = state.baseUrl;
+  $("authorized").checked = state.authorized;
+  updateAuthBox();
+  renderUsers();
+  renderGrid();
+}
+
+function updateAuthBox() {
+  let local = false;
+  try {
+    const host = new URL($("baseUrl").value.trim()).hostname;
+    local = host === "localhost" || host === "127.0.0.1";
+  } catch (e) { local = true; }
+  $("authBox").hidden = local;
+}
+
+// ---------- Checking ----------
 function verdict(expected, status) {
   if (status === null) return "ERROR";
   const ok = status >= 200 && status < 300;
   const blocked = status === 401 || status === 403;
-  if (expected === "allow") return ok ? "PASS" : blocked ? "UNEXPECTED BLOCK" : "CHECK";
-  return ok ? "FINDING" : blocked ? "PASS" : "CHECK";
+  if (expected === "allow") return ok ? "PASS" : blocked ? "REVIEW" : "REVIEW";
+  return ok ? "FINDING" : blocked ? "PASS" : "REVIEW";
 }
 
-function label(result) {
-  return result.startsWith("UNEXPECTED") ? "UNEXPECTED" : result;
+const MEANING = {
+  PASS: "Correct. The access rule worked.",
+  FINDING: "Problem. A user who should be blocked got data back.",
+  REVIEW: "Unusual. Could be a bug or a wrong expectation. Look at the response yourself.",
+  ERROR: "No answer. Check that the server is running and the address is right.",
+  SKIPPED: "Not run."
+};
+
+function describeStatus(status) {
+  if (status === null) return "No answer";
+  if (status >= 200 && status < 300) return status + " OK (data returned)";
+  if (status === 401) return "401 (not logged in)";
+  if (status === 403) return "403 (logged in, but not allowed)";
+  if (status === 404) return "404 (not found)";
+  return status + " (unusual answer)";
 }
 
-function addRow(cells) {
-  const tbody = $("rows");
-  if (tbody.dataset.empty) { tbody.innerHTML = ""; delete tbody.dataset.empty; }
-  const tr = document.createElement("tr");
-  cells.forEach((c, i) => {
-    const td = document.createElement("td");
-    if (i === 0) {
-      const tag = document.createElement("span");
-      tag.className = "tag " + label(c);
-      tag.textContent = c;
-      td.appendChild(tag);
-    } else {
-      td.textContent = c === null ? "-" : String(c);
-      if (i === 5) td.className = "snippet";
-    }
-    tr.appendChild(td);
-  });
-  tbody.appendChild(tr);
+function expectedText(exp) {
+  return exp === "allow" ? "Should be allowed" : "Should be blocked";
 }
 
-function renderSummary(counts) {
+function setError(msg) { $("error").textContent = msg; }
+
+function addResultRow(r) {
+  const body = $("resultsBody");
+  if (body.dataset.empty) { body.innerHTML = ""; delete body.dataset.empty; }
+  const meaningCell = el("td", {}, [el("div", { text: MEANING[r.result] || "" })]);
+  if (r.result === "FINDING" && r.snippet) {
+    meaningCell.appendChild(el("details", {}, [
+      el("summary", { text: "Show the start of the response" }),
+      el("code", { text: r.snippet })
+    ]));
+  }
+  body.appendChild(el("tr", {}, [
+    el("td", {}, [el("span", { class: "tag " + (r.result === "REVIEW" ? "REVIEW" : r.result), text: r.result })]),
+    el("td", { text: r.who }),
+    el("td", { text: r.endpoint + " " + r.path }),
+    el("td", { text: expectedText(r.expected) }),
+    el("td", { text: describeStatus(r.status) }),
+    meaningCell
+  ]));
+}
+
+function updateSummary() {
+  const count = k => lastResults.filter(r => r.result === k).length;
+  const review = lastResults.filter(r => r.result === "REVIEW").length;
+  const cards = [
+    ["PASS", count("PASS"), "Passed"],
+    ["FINDING", count("FINDING"), "Problems found"],
+    ["REVIEW", review, "Need a look"],
+    ["ERROR", count("ERROR"), "No answer"]
+  ];
   const box = $("summary");
   box.innerHTML = "";
-  Object.entries(counts).sort().forEach(([k, v]) => {
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.textContent = k + ": " + v;
-    box.appendChild(chip);
+  cards.forEach(([_, n, label]) => {
+    box.appendChild(el("div", { class: "card" }, [
+      el("div", { class: "num", text: String(n) }),
+      el("div", { class: "lbl", text: label })
+    ]));
   });
-}
 
-function fillPath(path, vars) {
-  return path.replace(/\{(\w+)\}/g, (m, key) => {
-    if (!(key in vars)) throw new Error("missing path variable " + key);
-    return encodeURIComponent(vars[key]);
-  });
+  const findings = count("FINDING");
+  const v = $("verdict");
+  v.innerHTML = "";
+  if (!lastResults.length) return;
+  if (findings > 0) {
+    v.appendChild(el("div", { class: "verdict bad",
+      text: "Found " + findings + " access control problem" + (findings === 1 ? "" : "s") + ". Each FINDING row is a user who got data they should have been blocked from." }));
+  } else if (count("ERROR") === lastResults.length) {
+    v.appendChild(el("div", { class: "verdict bad", text: "No checks got an answer. Is the server running?" }));
+  } else {
+    v.appendChild(el("div", { class: "verdict good", text: "No access control problems found in these checks." }));
+  }
 }
 
 async function runChecks() {
-  $("error").textContent = "";
-  let cfg;
-  try { cfg = JSON.parse(configBox.value); }
-  catch (e) { $("error").textContent = "Config is not valid JSON: " + e.message; return; }
+  setError("");
+  const base = $("baseUrl").value.trim();
+  state.baseUrl = base;
+  let url;
+  try { url = new URL(base); }
+  catch (e) { setError("Enter a full address like http://localhost:8000"); return; }
 
-  for (const key of ["base_url", "roles", "endpoints"]) {
-    if (!(key in cfg)) { $("error").textContent = "Config is missing: " + key; return; }
+  const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  state.authorized = $("authorized").checked;
+  if (!local && !state.authorized) {
+    setError("This address is not localhost. Tick the authorization box if you are permitted to test it.");
+    return;
   }
 
-  let host;
-  try { host = new URL(cfg.base_url).hostname; }
-  catch (e) { $("error").textContent = "base_url is not a valid URL."; return; }
-
-  const isLocal = host === "localhost" || host === "127.0.0.1";
-  if (!isLocal && !$("authorized").checked) {
-    $("error").textContent = "Host '" + host + "' is not localhost. Tick the authorization box if you are permitted to test it.";
+  const tests = [];
+  for (const ep of state.endpoints) {
+    if (!ep.path.startsWith("/")) { setError("The path for \"" + ep.name + "\" must start with /"); return; }
+    for (const u of state.users) {
+      const exp = ep.exp[u.id] || "skip";
+      if (exp === "skip") continue;
+      tests.push({ ep, u, exp });
+    }
+  }
+  if (!tests.length) {
+    setError("Set at least one row to \"Should be allowed\" or \"Should be blocked\".");
     return;
   }
 
   const btn = $("runBtn");
   btn.disabled = true;
   btn.textContent = "Running...";
-  $("rows").innerHTML = "";
-  $("rows").dataset.empty = "";
-  const counts = {};
+  $("downloadBtn").disabled = true;
+  lastResults = [];
+  $("resultsBody").innerHTML = "";
+  $("resultsBody").dataset.empty = "1";
+  $("verdict").innerHTML = "";
+  $("summary").innerHTML = "";
 
-  for (const ep of cfg.endpoints) {
-    const name = ep.name || (ep.method + " " + ep.path);
-    const method = (ep.method || "GET").toUpperCase();
-
-    if (method !== "GET") {
-      addRow(["SKIPPED", name, "-", "-", "-", "Only GET is run in the browser checker"]);
-      counts.SKIPPED = (counts.SKIPPED || 0) + 1;
-      continue;
+  const base2 = base.replace(/\/$/, "");
+  for (const t of tests) {
+    const path = t.ep.path.trim();
+    const token = t.u.token.trim();
+    const headers = token ? { Authorization: "Bearer " + token } : {};
+    let status = null, snippet = "";
+    try {
+      const res = await fetch(base2 + path, { method: "GET", headers });
+      status = res.status;
+      snippet = (await res.text()).slice(0, 120);
+    } catch (e) {
+      snippet = "No response (server not running, or the browser blocked the request).";
     }
-
-    for (const [role, expected] of Object.entries(ep.expect || {})) {
-      if (!(role in cfg.roles)) {
-        addRow(["SKIPPED", name, role, expected, "-", "role not defined in config"]);
-        counts.SKIPPED = (counts.SKIPPED || 0) + 1;
-        continue;
-      }
-      const vars = Object.assign({}, ep.path_vars || {}, (ep.path_vars_by_role || {})[role] || {});
-      let url;
-      try { url = cfg.base_url.replace(/\/$/, "") + fillPath(ep.path, vars); }
-      catch (e) {
-        addRow(["SKIPPED", name, role, expected, "-", e.message]);
-        counts.SKIPPED = (counts.SKIPPED || 0) + 1;
-        continue;
-      }
-
-      const token = cfg.roles[role];
-      const headers = token ? { Authorization: "Bearer " + token } : {};
-      let status = null, snippet = "";
-      try {
-        const res = await fetch(url, { method: "GET", headers });
-        status = res.status;
-        snippet = (await res.text()).slice(0, 120);
-      } catch (e) {
-        snippet = "no response (server down, or browser blocked the request)";
-      }
-
-      const result = verdict(expected, status);
-      counts[result] = (counts[result] || 0) + 1;
-      addRow([result, name, role, expected, status, snippet]);
-      renderSummary(counts);
-    }
+    const result = verdict(t.exp, status);
+    const r = { result, who: t.u.name, endpoint: t.ep.name, path, expected: t.exp, status, snippet };
+    lastResults.push(r);
+    if (lastResults.length === 1) { $("resultsBody").innerHTML = ""; delete $("resultsBody").dataset.empty; }
+    addResultRow(r);
+    updateSummary();
   }
 
-  if (!Object.keys(counts).length) addRow(["SKIPPED", "No checks ran", "-", "-", "-", "Check your config"]);
-  renderSummary(counts);
   btn.disabled = false;
   btn.textContent = "Run checks";
+  $("downloadBtn").disabled = false;
 }
 
+function downloadReport() {
+  const esc = s => String(s).replace(/\|/g, "\\|");
+  const lines = [
+    "# API Access Check Report",
+    "",
+    "Target: " + $("baseUrl").value.trim(),
+    "Run at: " + new Date().toLocaleString(),
+    "",
+    "| Result | Who | Endpoint | Expected | What happened |",
+    "|---|---|---|---|---|"
+  ];
+  lastResults.forEach(r => {
+    lines.push("| " + [r.result, r.who, r.endpoint + " (" + r.path + ")", expectedText(r.expected), describeStatus(r.status)].map(esc).join(" | ") + " |");
+  });
+  const findings = lastResults.filter(r => r.result === "FINDING");
+  lines.push("", "## Problems found", "");
+  if (!findings.length) lines.push("None.");
+  findings.forEach(r => lines.push("- " + r.who + " could reach \"" + r.endpoint + "\" (" + r.path + ") and got data back."));
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/markdown" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: "access-check-report.md" });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+// ---------- Wire up buttons ----------
+$("loadBtn").onclick = loadPractice;
+$("addUserBtn").onclick = addUser;
+$("addEndpointBtn").onclick = addEndpoint;
 $("runBtn").onclick = runChecks;
+$("downloadBtn").onclick = downloadReport;
+$("baseUrl").oninput = e => { state.baseUrl = e.target.value; updateAuthBox(); };
+$("authorized").onchange = e => { state.authorized = e.target.checked; };
+
+// Start with the practice example already filled in
+loadPractice();
 </script>
 </body>
 </html>
